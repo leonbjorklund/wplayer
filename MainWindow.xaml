@@ -13,8 +13,9 @@
         UseLayoutRounding="True">
     <Window.ContextMenu>
         <ContextMenu x:Name="PlayerContextMenu"
-                     Background="#2B2B2B"
-                     BorderBrush="#545454"
+                     AutomationProperties.Name="WPlayer menu"
+                     Background="{DynamicResource PlayerContextMenuBackgroundBrush}"
+                     BorderBrush="{DynamicResource PlayerContextMenuBorderBrush}"
                      BorderThickness="1"
                      Padding="2"
                      SnapsToDevicePixels="True"
@@ -32,7 +33,7 @@
             </ContextMenu.Template>
             <ContextMenu.Resources>
                 <Style TargetType="{x:Type MenuItem}">
-                    <Setter Property="Foreground" Value="#F1F3F4" />
+                    <Setter Property="Foreground" Value="{DynamicResource PlayerContextMenuForegroundBrush}" />
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="Padding" Value="10,5" />
                     <Setter Property="MinWidth" Value="90" />
@@ -67,7 +68,8 @@
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsHighlighted" Value="True">
-                                        <Setter TargetName="ItemBorder" Property="Background" Value="#3D3D3D" />
+                                        <Setter Property="Foreground" Value="{DynamicResource PlayerContextMenuHighlightedForegroundBrush}" />
+                                        <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource PlayerContextMenuHighlightedBackgroundBrush}" />
                                     </Trigger>
                                     <Trigger Property="IsChecked" Value="True">
                                         <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
@@ -81,7 +83,7 @@
                        TargetType="{x:Type Separator}">
                     <Setter Property="OverridesDefaultStyle" Value="True" />
                     <Setter Property="Margin" Value="-2,3" />
-                    <Setter Property="Background" Value="#545454" />
+                    <Setter Property="Background" Value="{DynamicResource PlayerContextMenuSeparatorBrush}" />
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="{x:Type Separator}">
@@ -104,8 +106,6 @@
     </Window.ContextMenu>
 
     <Window.Resources>
-        <SolidColorBrush x:Key="PlaybackButtonHoverBackgroundBrush" Color="#565656" />
-        <SolidColorBrush x:Key="UtilityHoverBackgroundBrush" Color="#2C2C2C" />
         <Style x:Key="KeyboardFocusVisual">
             <Setter Property="Control.Template">
                 <Setter.Value>
@@ -130,6 +130,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource PlaybackButtonHoverForegroundBrush}" />
                                 <Setter TargetName="ButtonBackground" Property="Background" Value="{DynamicResource PlaybackButtonHoverBackgroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -166,7 +167,7 @@
                         </Path.RenderTransform>
                     </Path>
                 </Button>
-                <Button x:Name="PlayPauseButton" MinWidth="0" MinHeight="0" AutomationProperties.Name="Play or pause" Click="PlayPause_Click">
+                <Button x:Name="PlayPauseButton" MinWidth="0" MinHeight="0" AutomationProperties.Name="Play" Click="PlayPause_Click">
                     <Grid x:Name="PlayPauseIconContainer">
                         <Path x:Name="PlayIcon" Stretch="Uniform" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Data="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288z" />
                         <Path x:Name="PauseIcon" Stretch="Uniform" Visibility="Collapsed" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Data="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7z" />
@@ -184,9 +185,9 @@
                     VerticalAlignment="Center"
                     Background="Transparent"
                     FocusVisualStyle="{StaticResource KeyboardFocusVisual}"
-                    AutomationProperties.Name="Focus media source"
-                    AutomationProperties.HelpText="Scroll to change volume"
                     Click="NowPlayingHitTarget_Click"
+                    KeyDown="NowPlayingHitTarget_KeyDown"
+                    LostKeyboardFocus="NowPlayingHitTarget_LostKeyboardFocus"
                     MouseEnter="NowPlayingHitTarget_MouseEnter"
                     MouseLeave="NowPlayingHitTarget_MouseLeave"
                     MouseWheel="NowPlayingHitTarget_MouseWheel">
@@ -204,6 +205,7 @@
                                     <Condition Property="IsMouseOver" Value="True" />
                                     <Condition Property="IsTabStop" Value="True" />
                                 </MultiTrigger.Conditions>
+                                <Setter Property="Foreground" Value="{DynamicResource NowPlayingHoverForegroundBrush}" />
                                 <Setter TargetName="NowPlayingBackground" Property="Background" Value="{DynamicResource UtilityHoverBackgroundBrush}" />
                             </MultiTrigger>
                         </ControlTemplate.Triggers>
@@ -218,6 +220,8 @@
                     <TextBlock x:Name="NowPlayingText"
                                VerticalAlignment="Center"
                                LineStackingStrategy="BlockLineHeight"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                               AutomationProperties.LiveSetting="Polite"
                                Text="Nothing playing"
                                TextTrimming="CharacterEllipsis" />
                     <Grid x:Name="VolumeIndicator"
@@ -230,22 +234,24 @@
                         <Viewbox x:Name="VolumeSpeakerIcon"
                                  Stretch="Uniform">
                             <Canvas Width="24" Height="24">
-                                <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Window}}"
+                                <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                       Data="M3,10 V14 A1,1 0 0 0 4,15 H7 L10.29,18.29 A1,1 0 0 0 12,17.58 V6.41 A1,1 0 0 0 10.29,5.7 L7,9 H4 A1,1 0 0 0 3,10 Z M16.5,12 C16.5,10.23 15.48,8.71 14,7.97 V16.02 C15.48,15.29 16.5,13.77 16.5,12 Z M14,5.25 V5.45 A0.92,0.92 0 0 0 14.6,6.3 A6,6 0 0 1 19,12 A6,6 0 0 1 14.6,17.7 A0.92,0.92 0 0 0 14,18.55 V18.75 A0.92,0.92 0 0 0 15.21,19.6 A8,8 0 0 0 21,12 A8,8 0 0 0 15.21,4.4 A0.92,0.92 0 0 0 14,5.25 Z" />
                             </Canvas>
                         </Viewbox>
                         <TextBlock x:Name="VolumePercentText"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
-                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                    FontSize="{Binding FontSize, ElementName=NowPlayingText}"
                                    FontWeight="SemiBold"
+                                   AutomationProperties.LiveSetting="Polite"
                                    Text="0%"
                                    Visibility="Collapsed" />
                     </Grid>
                     <Image x:Name="AppIconImage"
                            Grid.Column="2"
                            VerticalAlignment="Center"
+                           AutomationProperties.Name="Media app icon"
                            RenderOptions.BitmapScalingMode="HighQuality"
                            Visibility="Collapsed" />
                 </Grid>
@@ -268,6 +274,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource UtilityHoverForegroundBrush}" />
                                 <Setter TargetName="CycleButtonBackground" Property="Background" Value="{DynamicResource UtilityHoverBackgroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -305,6 +312,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource UtilityHoverForegroundBrush}" />
                                 <Setter TargetName="DragHandleBackground" Property="Background" Value="{DynamicResource UtilityHoverBackgroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>

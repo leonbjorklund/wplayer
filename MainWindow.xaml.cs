@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -51,6 +53,7 @@ public partial class MainWindow : Window
             Interval = ResumeMonitorCheckInterval
         };
         _resumeMonitorTimer.Tick += (_, _) => OnResumeMonitorTimerTick();
+        SystemParameters.StaticPropertyChanged += SystemParameters_StaticPropertyChanged;
         SizeChanged += (_, _) => QueueApplyPosition();
         _config = config;
         ApplyConfig();
@@ -99,6 +102,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
+        SystemParameters.StaticPropertyChanged -= SystemParameters_StaticPropertyChanged;
         _monitorOptionsRefreshVersion++;
         _resumeMonitorTimer.Stop();
         _mouseWheelHook?.Dispose();
@@ -120,40 +124,91 @@ public partial class MainWindow : Window
         PreviousButton.Visibility = _config.ShowPreviousButton ? Visibility.Visible : Visibility.Collapsed;
         PlayPauseButton.Visibility = _config.ShowPlayPauseButton ? Visibility.Visible : Visibility.Collapsed;
         NextButton.Visibility = _config.ShowNextButton ? Visibility.Visible : Visibility.Collapsed;
-        var background = BrushFromConfig(_config.BackgroundColor);
+        var highContrast = SystemParameters.HighContrast;
+        var background = highContrast
+            ? new SolidColorBrush(SystemColors.WindowColor)
+            : BrushFromConfig(_config.BackgroundColor);
         var palette = ColorContrast.PaletteFromBackground(background.Color);
-        if (background.Color.A == 0)
+        if (!highContrast && background.Color.A == 0)
         {
             // Layered windows pass alpha-zero pixels through before WPF hit-testing.
             background.Color = Color.FromArgb(1, background.Color.R, background.Color.G, background.Color.B);
         }
 
-        var border = BrushFromConfig(_config.BorderColor);
-        var text = BrushFromConfig(_config.TextColor);
-        var buttonBackground = new SolidColorBrush(palette.PlaybackBackground);
-        var buttonForeground = new SolidColorBrush(palette.PlaybackForeground);
+        var border = highContrast
+            ? new SolidColorBrush(SystemColors.WindowTextColor)
+            : BrushFromConfig(_config.BorderColor);
+        var text = highContrast
+            ? new SolidColorBrush(SystemColors.WindowTextColor)
+            : BrushFromConfig(_config.TextColor);
+        var buttonBackground = new SolidColorBrush(highContrast
+            ? SystemColors.ControlColor
+            : palette.PlaybackBackground);
+        var buttonForeground = new SolidColorBrush(highContrast
+            ? SystemColors.ControlTextColor
+            : palette.PlaybackForeground);
 
         Foreground = text;
         RootBorder.Background = background;
         RootBorder.BorderBrush = border;
-        RootBorder.BorderThickness = border.Color.A == 0 ? new Thickness(0) : new Thickness(1);
+        RootBorder.BorderThickness = highContrast || border.Color.A != 0
+            ? new Thickness(1)
+            : new Thickness(0);
 
-        NowPlayingText.Foreground = text;
-        Resources["PlaybackButtonHoverBackgroundBrush"] = new SolidColorBrush(palette.PlaybackHoverBackground);
-        Resources["UtilityHoverBackgroundBrush"] = new SolidColorBrush(palette.UtilityHoverBackground);
+        NowPlayingHitTarget.Foreground = text;
+        Resources["PlaybackButtonHoverBackgroundBrush"] = new SolidColorBrush(highContrast
+            ? SystemColors.HighlightColor
+            : palette.PlaybackHoverBackground);
+        Resources["PlaybackButtonHoverForegroundBrush"] = new SolidColorBrush(highContrast
+            ? SystemColors.HighlightTextColor
+            : palette.PlaybackForeground);
+        Resources["UtilityHoverBackgroundBrush"] = new SolidColorBrush(highContrast
+            ? SystemColors.HighlightColor
+            : palette.UtilityHoverBackground);
+        Resources["UtilityHoverForegroundBrush"] = new SolidColorBrush(highContrast
+            ? SystemColors.HighlightTextColor
+            : palette.UtilityForeground);
+        Resources["NowPlayingHoverForegroundBrush"] = new SolidColorBrush(highContrast
+            ? SystemColors.HighlightTextColor
+            : text.Color);
+        ApplyContextMenuPalette(highContrast);
 
         foreach (var button in new[] { PreviousButton, PlayPauseButton, NextButton })
         {
             button.Background = buttonBackground;
             button.Foreground = buttonForeground;
         }
-        CycleSessionButton.Foreground = new SolidColorBrush(palette.UtilityForeground);
+        CycleSessionButton.Foreground = new SolidColorBrush(highContrast
+            ? SystemColors.WindowTextColor
+            : palette.UtilityForeground);
         DragHandle.Foreground = CycleSessionButton.Foreground;
         DragToMoveMenuItem.IsChecked = _config.DragToMove;
         DragHandle.Visibility = _config.DragToMove ? Visibility.Visible : Visibility.Collapsed;
+        UpdateNowPlayingAccessibility();
 
         ApplyPlayerHeight();
         ApplySavedPosition();
+    }
+
+    private void ApplyContextMenuPalette(bool highContrast)
+    {
+        Resources["PlayerContextMenuBackgroundBrush"] = ContrastBrush(highContrast, Color.FromRgb(0x2B, 0x2B, 0x2B), SystemColors.MenuColor);
+        Resources["PlayerContextMenuBorderBrush"] = ContrastBrush(highContrast, Color.FromRgb(0x54, 0x54, 0x54), SystemColors.WindowTextColor);
+        Resources["PlayerContextMenuForegroundBrush"] = ContrastBrush(highContrast, Color.FromRgb(0xF1, 0xF3, 0xF4), SystemColors.MenuTextColor);
+        Resources["PlayerContextMenuHighlightedBackgroundBrush"] = ContrastBrush(highContrast, Color.FromRgb(0x3D, 0x3D, 0x3D), SystemColors.HighlightColor);
+        Resources["PlayerContextMenuHighlightedForegroundBrush"] = ContrastBrush(highContrast, Color.FromRgb(0xF1, 0xF3, 0xF4), SystemColors.HighlightTextColor);
+        Resources["PlayerContextMenuSeparatorBrush"] = ContrastBrush(highContrast, Color.FromRgb(0x54, 0x54, 0x54), SystemColors.WindowTextColor);
+    }
+
+    private static SolidColorBrush ContrastBrush(bool highContrast, Color normal, Color contrast) =>
+        new(highContrast ? contrast : normal);
+
+    private void SystemParameters_StaticPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SystemParameters.HighContrast))
+        {
+            _ = Dispatcher.InvokeAsync(ApplyConfig);
+        }
     }
 
     private void ApplyPlayerHeight()
@@ -399,10 +454,10 @@ public partial class MainWindow : Window
         };
 
         _settingsWindow = settingsWindow;
-        settingsWindow.SetUpdateStatus(_updateStatus);
         UpdateMonitorOptions();
         settingsWindow.Closed += (_, _) => _settingsWindow = null;
         settingsWindow.Show();
+        settingsWindow.SetUpdateStatus(_updateStatus);
     }
 
     private async Task RefreshMonitorOptionsAsync()
@@ -519,8 +574,19 @@ public partial class MainWindow : Window
 
                     _currentSourceAppUserModelId = snapshot.SourceAppUserModelId;
                     _hasMediaSession = snapshot.HasSession;
-                    NowPlayingHitTarget.IsTabStop = snapshot.HasSession;
-                    NowPlayingText.Text = snapshot.DisplayText;
+                    SetLiveText(NowPlayingText, snapshot.DisplayText);
+                    AutomationProperties.SetName(
+                        PlayPauseButton,
+                        snapshot.IsPlaying ? "Pause" : "Play");
+                    UpdateNowPlayingAccessibility();
+                    var mediaAppName = _config.MediaApps.FirstOrDefault(app =>
+                        string.Equals(
+                            app.SourceAppUserModelId,
+                            snapshot.SourceAppUserModelId,
+                            StringComparison.OrdinalIgnoreCase))?.DisplayName;
+                    AutomationProperties.SetName(
+                        AppIconImage,
+                        string.IsNullOrWhiteSpace(mediaAppName) ? "Media app icon" : $"{mediaAppName} icon");
                     AppIconImage.Source = appIcon;
                     AppIconImage.Visibility = appIcon is null ? Visibility.Collapsed : Visibility.Visible;
                     PlayIcon.Visibility = snapshot.IsPlaying ? Visibility.Collapsed : Visibility.Visible;
@@ -536,9 +602,10 @@ public partial class MainWindow : Window
                     _renderedSnapshot = null;
                     _currentSourceAppUserModelId = null;
                     _hasMediaSession = false;
-                    NowPlayingHitTarget.IsTabStop = false;
                     ResetVolumeIndicatorValue();
-                    NowPlayingText.Text = "Media unavailable";
+                    SetLiveText(NowPlayingText, "Media unavailable");
+                    AutomationProperties.SetName(PlayPauseButton, "Play");
+                    UpdateNowPlayingAccessibility();
                     AppIconImage.Source = null;
                     AppIconImage.Visibility = Visibility.Collapsed;
                     ControlPanel.IsEnabled = false;
@@ -790,15 +857,49 @@ public partial class MainWindow : Window
         var detents = _volumeWheel.Add(delta);
         if (detents != 0)
         {
-            var result = AudioVolumeService.AdjustVolume(
-                _currentSourceAppUserModelId,
-                _config.ScrollVolumeTarget,
-                detents * VolumeStepPercent);
-            if (result.Success)
-            {
-                _volumeValuePinned = true;
-                ShowVolumePercent(result.Percent);
-            }
+            AdjustVolumeBySteps(detents);
+        }
+    }
+
+    private bool AdjustVolumeBySteps(int steps)
+    {
+        var result = AudioVolumeService.AdjustVolume(
+            _currentSourceAppUserModelId,
+            _config.ScrollVolumeTarget,
+            steps * VolumeStepPercent);
+        if (!result.Success)
+        {
+            return false;
+        }
+
+        _volumeValuePinned = true;
+        ShowVolumePercent(result.Percent);
+        return true;
+    }
+
+    private void NowPlayingHitTarget_KeyDown(object sender, KeyEventArgs e)
+    {
+        var steps = e.Key switch
+        {
+            Key.Up => 1,
+            Key.Down => -1,
+            _ => 0
+        };
+        if (steps == 0 || !AdjustVolumeBySteps(steps))
+        {
+            return;
+        }
+
+        VolumeIndicator.Visibility = Visibility.Visible;
+        e.Handled = true;
+    }
+
+    private void NowPlayingHitTarget_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (!NowPlayingHitTarget.IsMouseOver)
+        {
+            VolumeIndicator.Visibility = Visibility.Collapsed;
+            ResetVolumeIndicatorValue();
         }
     }
 
@@ -810,9 +911,41 @@ public partial class MainWindow : Window
 
     private void ShowVolumePercent(int percent)
     {
-        VolumePercentText.Text = $"{Math.Clamp(percent, 0, 100)}%";
         VolumeSpeakerIcon.Visibility = Visibility.Collapsed;
         VolumePercentText.Visibility = Visibility.Visible;
+        SetLiveText(VolumePercentText, $"{Math.Clamp(percent, 0, 100)}%");
+    }
+
+    private void UpdateNowPlayingAccessibility()
+    {
+        var controlsSystemVolume = _config.ScrollVolumeTarget == VolumeScrollTarget.WindowsMaster;
+        NowPlayingHitTarget.IsTabStop = _hasMediaSession || controlsSystemVolume;
+        AutomationProperties.SetName(
+            NowPlayingHitTarget,
+            _hasMediaSession
+                ? $"Focus media source: {NowPlayingText.Text}"
+                : controlsSystemVolume
+                    ? $"{NowPlayingText.Text}. System volume"
+                    : NowPlayingText.Text);
+        var volumeHelp = $"Use Up and Down Arrow keys to change {(controlsSystemVolume ? "system" : "current app")} volume.";
+        AutomationProperties.SetHelpText(
+            NowPlayingHitTarget,
+            _hasMediaSession
+                ? $"Press Enter to focus the media source. {volumeHelp}"
+                : volumeHelp);
+    }
+
+    private static void SetLiveText(TextBlock textBlock, string text)
+    {
+        if (string.Equals(textBlock.Text, text, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        textBlock.Text = text;
+        var peer = UIElementAutomationPeer.FromElement(textBlock)
+            ?? UIElementAutomationPeer.CreatePeerForElement(textBlock);
+        peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
     }
 
     private void ResetVolumeIndicatorValue()

@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using WPlayer.Services;
@@ -22,6 +24,16 @@ public partial class SettingsWindow : Window
         _config = config;
         _onChanged = onChanged;
         InitializeComponent();
+        foreach (var comboBox in new[] { AppIconModeComboBox, MonitorComboBox })
+        {
+            comboBox.AddHandler(
+                Keyboard.PreviewKeyDownEvent,
+                new KeyEventHandler(DropdownComboBox_PreviewKeyDown),
+                handledEventsToo: true);
+        }
+        SystemParameters.StaticPropertyChanged += SystemParameters_StaticPropertyChanged;
+        Closed += (_, _) => SystemParameters.StaticPropertyChanged -= SystemParameters_StaticPropertyChanged;
+        ApplyAccessibilityColors();
         Loaded += PlaceOnCursorMonitor;
         LoadConfig();
     }
@@ -125,13 +137,12 @@ public partial class SettingsWindow : Window
         SaveChanges();
     }
 
-    private void DropdownButton_Checked(object sender, RoutedEventArgs e)
+    private void DropdownButton_Click(object sender, RoutedEventArgs e)
     {
-        var button = (ToggleButton)sender;
+        var button = (Button)sender;
         if (_suppressDropdownOpen)
         {
             _suppressDropdownOpen = false;
-            button.IsChecked = false;
             return;
         }
 
@@ -141,31 +152,36 @@ public partial class SettingsWindow : Window
         menu.IsOpen = true;
     }
 
-    private void DropdownButton_Unchecked(object sender, RoutedEventArgs e) =>
-        ((ToggleButton)sender).ContextMenu!.IsOpen = false;
-
-    private void DropdownContextMenu_Opened(object sender, RoutedEventArgs e) =>
-        ((ToggleButton)((ContextMenu)sender).PlacementTarget!).IsChecked = true;
-
-    private void DropdownContextMenu_Closed(object sender, RoutedEventArgs e)
+    private void DropdownContextMenu_PreviewMouseDownOutsideCapturedElement(
+        object sender,
+        MouseButtonEventArgs e)
     {
-        var button = (ToggleButton)((ContextMenu)sender).PlacementTarget!;
-        var pointer = Mouse.GetPosition(button);
-        _suppressDropdownOpen = Mouse.LeftButton == MouseButtonState.Pressed
-            && new Rect(button.RenderSize).Contains(pointer);
-        button.IsChecked = false;
+        var button = (Button)((ContextMenu)sender).PlacementTarget!;
+        _suppressDropdownOpen = new Rect(button.RenderSize).Contains(Mouse.GetPosition(button));
+    }
+
+    private void DropdownComboBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var comboBox = (ComboBox)sender;
+        if (!comboBox.IsDropDownOpen && e.Key is Key.Enter or Key.Space)
+        {
+            comboBox.IsDropDownOpen = true;
+            e.Handled = true;
+        }
     }
 
     private void UpdatePlaybackAppsSummary()
     {
         var enabledCount = _config.MediaApps.Count(app => app.Enabled);
-        PlaybackAppsSummaryText.Text = _config.MediaApps.Count switch
+        var summary = _config.MediaApps.Count switch
         {
             0 => "No apps detected",
             _ when enabledCount == 0 => "None enabled",
             _ when enabledCount == _config.MediaApps.Count => "All apps",
             _ => $"{enabledCount} of {_config.MediaApps.Count} enabled"
         };
+        PlaybackAppsSummaryText.Text = summary;
+        AutomationProperties.SetName(PlaybackAppsButton, $"Playback apps, {summary}");
     }
 
     private void PlaybackButton_Changed(object sender, RoutedEventArgs e)
@@ -187,12 +203,14 @@ public partial class SettingsWindow : Window
         var shownCount = (ShowPreviousButtonMenuItem.IsChecked ? 1 : 0)
             + (ShowPlayPauseButtonMenuItem.IsChecked ? 1 : 0)
             + (ShowNextButtonMenuItem.IsChecked ? 1 : 0);
-        PlaybackButtonsSummaryText.Text = shownCount switch
+        var summary = shownCount switch
         {
             0 => "None",
             3 => "All buttons",
             _ => $"{shownCount} of 3 shown"
         };
+        PlaybackButtonsSummaryText.Text = summary;
+        AutomationProperties.SetName(PlaybackButtonsButton, $"Playback buttons, {summary}");
     }
 
     private void Input_Changed(object sender, RoutedEventArgs e)
@@ -302,9 +320,38 @@ public partial class SettingsWindow : Window
     private void RefreshStatus()
     {
         var status = _saveStatus ?? _startupRegistrationStatus ?? _updateStatus;
-        StatusText.Text = status ?? "";
+        var text = status ?? "";
+        var changed = !string.Equals(StatusText.Text, text, StringComparison.Ordinal);
+        StatusText.Text = text;
         StatusText.Visibility = string.IsNullOrWhiteSpace(status) ? Visibility.Collapsed : Visibility.Visible;
+        if (changed && StatusText.Visibility == Visibility.Visible)
+        {
+            var peer = UIElementAutomationPeer.FromElement(StatusText)
+                ?? UIElementAutomationPeer.CreatePeerForElement(StatusText);
+            peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+        }
     }
+
+    private void SystemParameters_StaticPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SystemParameters.HighContrast))
+        {
+            _ = Dispatcher.InvokeAsync(ApplyAccessibilityColors);
+        }
+    }
+
+    private void ApplyAccessibilityColors()
+    {
+        var highContrast = SystemParameters.HighContrast;
+        Resources["VolumeSelectedBackgroundBrush"] = ContrastBrush(highContrast, Color.FromRgb(0x38, 0x38, 0x38), SystemColors.HighlightColor);
+        Resources["VolumeHoverBackgroundBrush"] = ContrastBrush(highContrast, Color.FromRgb(0x2D, 0x2D, 0x2D), SystemColors.HighlightColor);
+        Resources["VolumeActiveForegroundBrush"] = ContrastBrush(highContrast, Color.FromRgb(0xF1, 0xF3, 0xF4), SystemColors.HighlightTextColor);
+        Resources["VolumeFocusOuterBrush"] = ContrastBrush(highContrast, Colors.Black, SystemColors.WindowTextColor);
+        Resources["VolumeFocusInnerBrush"] = ContrastBrush(highContrast, Colors.White, SystemColors.WindowColor);
+    }
+
+    private static SolidColorBrush ContrastBrush(bool highContrast, Color normal, Color contrast) =>
+        new(highContrast ? contrast : normal);
 
     private void SaveChanges()
     {

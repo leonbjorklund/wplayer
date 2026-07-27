@@ -7,12 +7,12 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap uap10 desktop rescap">
   <Identity
-    Name="LeonBjorklund.WPlayerMediaWidget"
+    Name="LeonBjrklund.WPlayerMediaWidget"
     Publisher="CN=FA88BFC5-D30E-49D1-8C39-0AF157EC6596"
     Version="1.0.0.0"
     ProcessorArchitecture="x64" />
   <Properties>
-    <DisplayName>WPlayer Media Widget</DisplayName>
+    <DisplayName>WPlayer Widget</DisplayName>
     <PublisherDisplayName>Leon Björklund</PublisherDisplayName>
     <Description>Small media-session widget for Windows 11.</Description>
     <Logo>Assets\StoreLogo.png</Logo>

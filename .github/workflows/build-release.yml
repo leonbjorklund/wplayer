@@ -1,0 +1,94 @@
+name: Build and release
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      - name: Read and validate version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content WPlayer.csproj
+          $version = $project.Project.PropertyGroup.Version | Select-Object -First 1
+          "value=$version" >> $env:GITHUB_OUTPUT
+          if ($env:GITHUB_REF -like "refs/tags/*" -and $env:GITHUB_REF_NAME -cne "v$version") {
+            throw "Tag $env:GITHUB_REF_NAME does not match project version v$version."
+          }
+
+      - name: Restore and audit packages
+        shell: pwsh
+        run: dotnet restore WPlayer.Tests/WPlayer.Tests.csproj --locked-mode -p:NuGetAudit=true -p:NuGetAuditMode=all '-warnaserror:NU1900;NU1901;NU1902;NU1903;NU1904;NU1905'
+
+      - name: Build
+        run: dotnet build WPlayer.Tests/WPlayer.Tests.csproj -c Release --no-restore
+
+      - name: Test
+        run: dotnet test WPlayer.Tests/WPlayer.Tests.csproj -c Release --no-build
+
+  release:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      - name: Build unsigned release
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: ./scripts/package-release.ps1 -Version $env:VERSION
+
+      - name: Upload test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: WPlayer-${{ needs.build.outputs.version }}-unsigned
+          path: |
+            artifacts/releases/releases.win.json
+            artifacts/releases/WPlayer.Desktop-${{ needs.build.outputs.version }}-full.nupkg
+            artifacts/releases/WPlayer-Setup.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(
+            "artifacts/releases/releases.win.json"
+            "artifacts/releases/WPlayer.Desktop-${{ needs.build.outputs.version }}-full.nupkg"
+            "artifacts/releases/WPlayer-Setup.exe"
+          )
+          gh release create $env:GITHUB_REF_NAME @assets --draft --verify-tag --generate-notes `
+            --notes "Unsigned Windows installer. Windows may show a security warning."

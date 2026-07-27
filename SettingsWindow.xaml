@@ -1,0 +1,419 @@
+<Window x:Class="WPlayer.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WPlayer"
+        Width="340"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        LostKeyboardFocus="Window_LostKeyboardFocus"
+        ThemeMode="System">
+    <Window.Resources>
+        <Style x:Key="ColorSwatchStyle" TargetType="Border">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="BorderBrush" Value="#777" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style x:Key="ColorTextBoxStyle"
+               TargetType="TextBox"
+               BasedOn="{StaticResource {x:Type TextBoxBase}}">
+            <Setter Property="Padding" Value="28,2,32,2" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <DataTemplate x:Key="ColorResetIconTemplate">
+            <Viewbox Width="12" Height="12">
+                <Path Data="M13.8,9.3 A6,6 0 1 1 12,4 M12.5,2.5 V5.5 H9.5"
+                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      StrokeThickness="1"
+                      StrokeStartLineCap="Round"
+                      StrokeEndLineCap="Round"
+                      StrokeLineJoin="Round" />
+            </Viewbox>
+        </DataTemplate>
+        <Style x:Key="ColorResetButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Content" Value="Reset" />
+            <Setter Property="ContentTemplate" Value="{StaticResource ColorResetIconTemplate}" />
+            <Setter Property="ToolTip" Value="Reset to default value" />
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
+        <Style x:Key="DropdownToggleButtonStyle"
+               TargetType="ToggleButton"
+               BasedOn="{StaticResource {x:Type ToggleButton}}">
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="DropdownChevronStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Text" Value="&#xE70D;" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType={x:Type ToggleButton}}}"
+                             Value="True">
+                    <Setter Property="Text" Value="&#xE70E;" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <SolidColorBrush x:Key="VolumeSelectedBackgroundBrush"
+                         Color="#383838" />
+        <Style x:Key="VolumeChoiceStyle" TargetType="RadioButton">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#2D2D2D" />
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="{StaticResource VolumeSelectedBackgroundBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="LeftVolumeChoiceStyle"
+               TargetType="RadioButton"
+               BasedOn="{StaticResource VolumeChoiceStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3,0,0,3">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="RightVolumeChoiceStyle"
+               TargetType="RadioButton"
+               BasedOn="{StaticResource VolumeChoiceStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="0,3,3,0">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+    </Window.Resources>
+    <Border Padding="12,8,12,12"
+            Background="Transparent"
+            MouseLeftButtonDown="SettingsPanel_MouseLeftButtonDown">
+        <StackPanel>
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="Launch at startup"
+                           VerticalAlignment="Center" />
+                <TextBlock x:Name="StatusText"
+                           Grid.Row="1"
+                           Grid.ColumnSpan="2"
+                           Margin="0,4,0,0"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center"
+                           Visibility="Collapsed" />
+                <CheckBox x:Name="StartupCheckBox"
+                          Grid.Column="1"
+                          HorizontalAlignment="Left"
+                          AutomationProperties.Name="Launch at startup"
+                          Checked="Input_Changed"
+                          Unchecked="Input_Changed" />
+            </Grid>
+
+            <Separator Margin="0,0,0,6" />
+            <TextBlock Text="Playback"
+                       Style="{StaticResource SectionHeaderStyle}" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Playback apps" VerticalAlignment="Center" Margin="0,0,8,10" />
+                <ToggleButton x:Name="PlaybackAppsButton"
+                              Grid.Column="1"
+                              Margin="0,0,0,10"
+                              Style="{StaticResource DropdownToggleButtonStyle}"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch"
+                              Checked="DropdownButton_Checked"
+                              Unchecked="DropdownButton_Unchecked">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="PlaybackAppsSummaryText"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Style="{StaticResource DropdownChevronStyle}" />
+                    </Grid>
+                    <ToggleButton.ContextMenu>
+                        <ContextMenu x:Name="PlaybackAppsContextMenu"
+                                     Placement="Bottom"
+                                     Opened="DropdownContextMenu_Opened"
+                                     Closed="DropdownContextMenu_Closed" />
+                    </ToggleButton.ContextMenu>
+                </ToggleButton>
+
+                <TextBlock Grid.Row="1" Text="Playback buttons" VerticalAlignment="Center" Margin="0,0,8,10" />
+                <ToggleButton
+                              Grid.Row="1"
+                              Grid.Column="1"
+                              Margin="0,0,0,10"
+                              Style="{StaticResource DropdownToggleButtonStyle}"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch"
+                              Checked="DropdownButton_Checked"
+                              Unchecked="DropdownButton_Unchecked">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="PlaybackButtonsSummaryText"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Style="{StaticResource DropdownChevronStyle}" />
+                    </Grid>
+                    <ToggleButton.ContextMenu>
+                        <ContextMenu
+                                     Placement="Bottom"
+                                     Opened="DropdownContextMenu_Opened"
+                                     Closed="DropdownContextMenu_Closed">
+                            <MenuItem x:Name="ShowPreviousButtonMenuItem"
+                                      Header="Previous"
+                                      IsCheckable="True"
+                                      StaysOpenOnClick="True"
+                                      Click="PlaybackButton_Changed" />
+                            <MenuItem x:Name="ShowPlayPauseButtonMenuItem"
+                                      Header="Play / pause"
+                                      IsCheckable="True"
+                                      StaysOpenOnClick="True"
+                                      Click="PlaybackButton_Changed" />
+                            <MenuItem x:Name="ShowNextButtonMenuItem"
+                                      Header="Next"
+                                      IsCheckable="True"
+                                      StaysOpenOnClick="True"
+                                      Click="PlaybackButton_Changed" />
+                        </ContextMenu>
+                    </ToggleButton.ContextMenu>
+                </ToggleButton>
+
+                <TextBlock Grid.Row="2" Text="App icons" VerticalAlignment="Center" Margin="0,0,8,10" />
+                <ComboBox x:Name="AppIconModeComboBox"
+                          Grid.Row="2"
+                          Grid.Column="1"
+                          Margin="0,0,0,10"
+                          AutomationProperties.Name="App icons"
+                          SelectionChanged="Input_Changed">
+                    <ComboBoxItem Content="Show" />
+                    <ComboBoxItem Content="Hide" />
+                    <ComboBoxItem Content="Multiple sources" />
+                </ComboBox>
+
+                <TextBlock Grid.Row="3" Text="Scroll volume" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <Border Grid.Row="3"
+                        Grid.Column="1"
+                        BorderBrush="{StaticResource VolumeSelectedBackgroundBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="1" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <RadioButton x:Name="VolumeCurrentAppRadio"
+                                     Content="Current app"
+                                     Style="{StaticResource LeftVolumeChoiceStyle}"
+                                     AutomationProperties.Name="Current app volume"
+                                     Checked="VolumeTarget_Checked" />
+                        <Border Grid.Column="1"
+                                Background="{StaticResource VolumeSelectedBackgroundBrush}" />
+                        <RadioButton x:Name="VolumeSystemVolumeRadio"
+                                     Grid.Column="2"
+                                     Content="System"
+                                     Style="{StaticResource RightVolumeChoiceStyle}"
+                                     AutomationProperties.Name="System volume"
+                                     Checked="VolumeTarget_Checked" />
+                    </Grid>
+                </Border>
+
+            </Grid>
+
+            <Separator Margin="0,8,0,6" />
+            <TextBlock Text="Appearance"
+                       Style="{StaticResource SectionHeaderStyle}" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock x:Name="MonitorLabel"
+                           Grid.Row="0"
+                           Text="Show on monitor"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,10"
+                           Visibility="Collapsed" />
+                <ComboBox x:Name="MonitorComboBox"
+                          Grid.Row="0"
+                          Grid.Column="1"
+                          Margin="0,0,0,10"
+                          HorizontalContentAlignment="Stretch"
+                          AutomationProperties.Name="Show on monitor"
+                          Visibility="Collapsed"
+                          SelectionChanged="MonitorComboBox_SelectionChanged">
+                    <ComboBox.ItemContainerStyle>
+                        <Style TargetType="ComboBoxItem"
+                               BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                            <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
+                        </Style>
+                    </ComboBox.ItemContainerStyle>
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock FontFamily="Segoe Fluent Icons"
+                                           FontSize="16"
+                                           Text="&#xE7F4;"
+                                           Margin="0,0,8,0"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Label}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <TextBlock Grid.Row="1" Text="Scale" VerticalAlignment="Center" Margin="0,0,8,10" />
+                <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.ColumnSpan="2"
+                             IsReadOnly="True"
+                             IsHitTestVisible="False"
+                             Focusable="False" />
+                    <TextBlock x:Name="ScaleValueText"
+                               Grid.Column="1"
+                               MinWidth="42"
+                               Margin="0,0,12,0"
+                               TextAlignment="Right"
+                               VerticalAlignment="Center" />
+                    <Slider x:Name="ScaleSlider"
+                            Margin="-6,0,-12,0"
+                            RenderTransformOrigin="0.5,0.5"
+                            Minimum="100"
+                            Maximum="200"
+                            TickFrequency="5"
+                            SmallChange="5"
+                            LargeChange="25"
+                            IsSnapToTickEnabled="True"
+                            AutoToolTipPlacement="TopLeft"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Scale"
+                            ValueChanged="ScaleSlider_ValueChanged">
+                        <Slider.RenderTransform>
+                            <ScaleTransform ScaleX="0.8" ScaleY="0.8" />
+                        </Slider.RenderTransform>
+                    </Slider>
+                </Grid>
+
+                <TextBlock Grid.Row="2" Text="Background" VerticalAlignment="Center" Margin="0,0,8,10" />
+                <Grid Grid.Row="2" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBox x:Name="BackgroundColorTextBox"
+                             Style="{StaticResource ColorTextBoxStyle}"
+                             AutomationProperties.Name="Background"
+                             TextChanged="Input_Changed" />
+                    <Border x:Name="BackgroundSwatch" Style="{StaticResource ColorSwatchStyle}" />
+                    <Button x:Name="ResetBackgroundColorButton"
+                            Style="{StaticResource ColorResetButtonStyle}"
+                            AutomationProperties.Name="Reset background color"
+                            Click="ResetBackgroundColor_Click" />
+                </Grid>
+
+                <TextBlock Grid.Row="3" Text="Border" VerticalAlignment="Center" Margin="0,0,8,10" />
+                <Grid Grid.Row="3" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBox x:Name="BorderColorTextBox"
+                             Style="{StaticResource ColorTextBoxStyle}"
+                             AutomationProperties.Name="Border"
+                             TextChanged="Input_Changed" />
+                    <Border x:Name="BorderSwatch" Style="{StaticResource ColorSwatchStyle}" />
+                    <Button x:Name="ResetBorderColorButton"
+                            Style="{StaticResource ColorResetButtonStyle}"
+                            AutomationProperties.Name="Reset border color"
+                            Click="ResetBorderColor_Click" />
+                </Grid>
+
+                <TextBlock Grid.Row="4" Text="Text" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <Grid Grid.Row="4" Grid.Column="1">
+                    <TextBox x:Name="TextColorTextBox"
+                             Style="{StaticResource ColorTextBoxStyle}"
+                             AutomationProperties.Name="Text"
+                             TextChanged="Input_Changed" />
+                    <Border x:Name="TextSwatch" Style="{StaticResource ColorSwatchStyle}" />
+                    <Button x:Name="ResetTextColorButton"
+                            Style="{StaticResource ColorResetButtonStyle}"
+                            AutomationProperties.Name="Reset text color"
+                            Click="ResetTextColor_Click" />
+                </Grid>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

@@ -6,10 +6,8 @@ Small Windows 11 media-session widget. Built with C# and WPF.
 
 ## Install
 
-Public downloads are not available yet. At launch:
-
-- **Microsoft Store** - recommended.
-- **GitHub Releases** - download `WPlayer-Setup.exe`. It is unsigned, so Windows may show a security warning.
+- **[Microsoft Store](https://apps.microsoft.com/detail/9P2KW14109F8)** - recommended.
+- **[GitHub Releases](https://github.com/leonbjorklund/wplayer/releases/latest)** - `WPlayer-Setup.exe`. Currently unsigned, Windows might show a warning.
 
 ## Controls
 

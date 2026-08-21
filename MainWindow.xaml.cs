@@ -40,6 +40,8 @@ public partial class MainWindow : Window
     private bool _hasMediaSession;
     private bool _volumeValuePinned;
     private bool _volumeScrollHovered;
+    private PlaybackCommand _armedTitleMouseGesture;
+    private MouseButton? _armedTitleMouseButton;
     private string? _resumeMonitorId;
     private int _resumeMonitorChecksRemaining;
     private int _monitorOptionsRefreshVersion;
@@ -654,13 +656,13 @@ public partial class MainWindow : Window
     }
 
     private async void Previous_Click(object sender, RoutedEventArgs e) =>
-        await RunMediaCommandAsync(() => _media.PreviousAsync(_config));
+        await RunPlaybackCommandAsync(PlaybackCommand.Previous);
 
     private async void PlayPause_Click(object sender, RoutedEventArgs e) =>
-        await RunMediaCommandAsync(() => _media.TogglePlayPauseAsync(_config));
+        await RunPlaybackCommandAsync(PlaybackCommand.TogglePlayPause);
 
     private async void Next_Click(object sender, RoutedEventArgs e) =>
-        await RunMediaCommandAsync(() => _media.NextAsync(_config));
+        await RunPlaybackCommandAsync(PlaybackCommand.Next);
 
     private async void CycleSession_Click(object sender, RoutedEventArgs e)
     {
@@ -805,6 +807,70 @@ public partial class MainWindow : Window
     }
 
     private void NowPlayingHitTarget_Click(object sender, RoutedEventArgs e) => FocusCurrentSource();
+
+    private void NowPlayingHitTarget_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        var gesture = TitleMouseGestureResolver.Resolve(e.ChangedButton, Keyboard.Modifiers);
+        if (gesture == PlaybackCommand.None)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        CancelTitleMouseGesture();
+        _armedTitleMouseGesture = gesture;
+        _armedTitleMouseButton = e.ChangedButton;
+        if (!NowPlayingHitTarget.CaptureMouse())
+        {
+            ResetTitleMouseGesture();
+        }
+    }
+
+    private async void NowPlayingHitTarget_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_armedTitleMouseButton != e.ChangedButton)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var gesture = _armedTitleMouseGesture;
+        var shouldRun = NowPlayingHitTarget.IsMouseOver &&
+            TitleMouseGestureResolver.Resolve(e.ChangedButton, Keyboard.Modifiers) == gesture;
+        CancelTitleMouseGesture();
+        if (!shouldRun)
+        {
+            return;
+        }
+
+        await RunPlaybackCommandAsync(gesture);
+    }
+
+    private void NowPlayingHitTarget_LostMouseCapture(object sender, MouseEventArgs e) =>
+        ResetTitleMouseGesture();
+
+    private void CancelTitleMouseGesture()
+    {
+        ResetTitleMouseGesture();
+        if (NowPlayingHitTarget.IsMouseCaptured)
+        {
+            NowPlayingHitTarget.ReleaseMouseCapture();
+        }
+    }
+
+    private void ResetTitleMouseGesture()
+    {
+        _armedTitleMouseGesture = PlaybackCommand.None;
+        _armedTitleMouseButton = null;
+    }
+
+    private Task RunPlaybackCommandAsync(PlaybackCommand command) => command switch
+    {
+        PlaybackCommand.TogglePlayPause => RunMediaCommandAsync(() => _media.TogglePlayPauseAsync(_config)),
+        PlaybackCommand.Next => RunMediaCommandAsync(() => _media.NextAsync(_config)),
+        PlaybackCommand.Previous => RunMediaCommandAsync(() => _media.PreviousAsync(_config)),
+        _ => Task.CompletedTask
+    };
 
     private void NowPlayingHitTarget_MouseEnter(object sender, MouseEventArgs e)
     {
@@ -967,4 +1033,24 @@ public partial class MainWindow : Window
     private static SolidColorBrush BrushFromConfig(string value) =>
         new((Color)ColorConverter.ConvertFromString(value)!);
 
+}
+
+internal enum PlaybackCommand
+{
+    None,
+    TogglePlayPause,
+    Next,
+    Previous
+}
+
+internal static class TitleMouseGestureResolver
+{
+    public static PlaybackCommand Resolve(MouseButton button, ModifierKeys modifiers) =>
+        (button, modifiers) switch
+        {
+            (MouseButton.Middle, ModifierKeys.None) => PlaybackCommand.TogglePlayPause,
+            (MouseButton.Left, ModifierKeys.Shift) => PlaybackCommand.Next,
+            (MouseButton.Right, ModifierKeys.Shift) => PlaybackCommand.Previous,
+            _ => PlaybackCommand.None
+        };
 }

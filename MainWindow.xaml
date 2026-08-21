@@ -188,9 +188,12 @@
                     Click="NowPlayingHitTarget_Click"
                     KeyDown="NowPlayingHitTarget_KeyDown"
                     LostKeyboardFocus="NowPlayingHitTarget_LostKeyboardFocus"
+                    LostMouseCapture="NowPlayingHitTarget_LostMouseCapture"
                     MouseEnter="NowPlayingHitTarget_MouseEnter"
                     MouseLeave="NowPlayingHitTarget_MouseLeave"
-                    MouseWheel="NowPlayingHitTarget_MouseWheel">
+                    MouseWheel="NowPlayingHitTarget_MouseWheel"
+                    PreviewMouseDown="NowPlayingHitTarget_PreviewMouseDown"
+                    PreviewMouseUp="NowPlayingHitTarget_PreviewMouseUp">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="NowPlayingBackground"

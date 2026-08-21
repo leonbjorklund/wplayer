@@ -114,6 +114,65 @@ public sealed class AppConfigTests
     }
 
     [TestMethod]
+    public void LoadPreservesSettingsFromPreviousRelease()
+    {
+        RunInTempDirectory(directory =>
+        {
+            var path = Path.Combine(directory, "config.json");
+            File.WriteAllText(path, """
+                {
+                  "mediaApps": [
+                    {
+                      "sourceAppUserModelId": "Spotify.exe",
+                      "displayName": "Spotify",
+                      "enabled": false
+                    }
+                  ],
+                  "width": 420,
+                  "monitorId": "display-id",
+                  "x": -12.5,
+                  "y": 32.25,
+                  "playerScale": 1.25,
+                  "showPreviousButton": false,
+                  "showPlayPauseButton": true,
+                  "showNextButton": false,
+                  "showIcon": false,
+                  "showIconOnlyWithMultipleSources": true,
+                  "dragToMove": false,
+                  "launchAtStartup": false,
+                  "scrollVolumeTarget": "windowsMaster",
+                  "backgroundColor": "#112233",
+                  "borderColor": "#445566",
+                  "textColor": "#AABBCC"
+                }
+                """);
+
+            var config = AppConfig.Load(path);
+
+            Assert.HasCount(1, config.MediaApps);
+            Assert.AreEqual("Spotify.exe", config.MediaApps[0].SourceAppUserModelId);
+            Assert.AreEqual("Spotify", config.MediaApps[0].DisplayName);
+            Assert.IsFalse(config.MediaApps[0].Enabled);
+            Assert.AreEqual(420, config.Width);
+            Assert.AreEqual("display-id", config.MonitorId);
+            Assert.AreEqual(-12.5, config.X);
+            Assert.AreEqual(32.25, config.Y);
+            Assert.AreEqual(1.25, config.PlayerScale);
+            Assert.IsFalse(config.ShowPreviousButton);
+            Assert.IsTrue(config.ShowPlayPauseButton);
+            Assert.IsFalse(config.ShowNextButton);
+            Assert.IsFalse(config.ShowIcon);
+            Assert.IsTrue(config.ShowIconOnlyWithMultipleSources);
+            Assert.IsFalse(config.DragToMove);
+            Assert.IsFalse(config.LaunchAtStartup);
+            Assert.AreEqual(VolumeScrollTarget.WindowsMaster, config.ScrollVolumeTarget);
+            Assert.AreEqual("#112233", config.BackgroundColor);
+            Assert.AreEqual("#445566", config.BorderColor);
+            Assert.AreEqual("#AABBCC", config.TextColor);
+        });
+    }
+
+    [TestMethod]
     public void ColorsUseSimplifiedDefaults()
     {
         var config = new AppConfig();

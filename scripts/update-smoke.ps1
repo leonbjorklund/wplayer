@@ -14,6 +14,7 @@ $exe = Join-Path $installRoot "current\WPlayer.exe"
 $installedDll = Join-Path $installRoot "current\WPlayer.dll"
 $versionFile = Join-Path $installRoot "current\sq.version"
 $updateExe = Join-Path $installRoot "Update.exe"
+$configPath = Join-Path $env:LOCALAPPDATA "WPlayer\config.json"
 
 function Wait-WPlayerVersion {
     param([string]$VersionFile, [string]$Name, [string]$TargetVersion)
@@ -52,6 +53,14 @@ try {
     Wait-WPlayer | Out-Null
     Get-Process WPlayer -ErrorAction SilentlyContinue | Stop-Process -Force
 
+    $sourceConfig = Get-Content -Raw -LiteralPath $configPath | ConvertFrom-Json
+    $sourceConfig.width = 421
+    $sourceConfig.showPreviousButton = $false
+    $sourceConfig.showIcon = $false
+    $sourceConfig.launchAtStartup = $false
+    $sourceConfig.backgroundColor = "#112233"
+    $sourceConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath
+
     & (Join-Path $PSScriptRoot "package-release.ps1") -Version $targetVersion -OutputDir $releaseDir
 
     $previousSource = $env:WPLAYER_UPDATE_SOURCE
@@ -71,9 +80,19 @@ try {
             throw "Installed update does not match the packaged $targetVersion code."
         }
 
+        $updatedConfig = Get-Content -Raw -LiteralPath $configPath | ConvertFrom-Json
+        if ($updatedConfig.width -ne 421 `
+            -or $updatedConfig.showPreviousButton -ne $false `
+            -or $updatedConfig.showIcon -ne $false `
+            -or $updatedConfig.launchAtStartup -ne $false `
+            -or $updatedConfig.backgroundColor -ne "#112233") {
+            throw "Installed update did not preserve the source-version settings."
+        }
+
         [pscustomobject]@{
             InstalledUpdatedTo = $targetVersion
             InstalledPath = $installedPath
+            SettingsPreserved = $true
         } | Format-List
     }
     finally {

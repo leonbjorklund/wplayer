@@ -367,6 +367,7 @@ public sealed class SettingsWindowTests
                 var playPause = (MenuItem)settings.FindName("ShowPlayPauseButtonMenuItem");
                 var next = (MenuItem)settings.FindName("ShowNextButtonMenuItem");
 
+                Assert.AreSame(playPause, settings.PlaybackButtonsButton.ContextMenu.Items[0]);
                 Assert.IsFalse(previous.IsChecked);
                 Assert.IsTrue(playPause.IsChecked);
                 Assert.IsFalse(next.IsChecked);

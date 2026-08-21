@@ -253,13 +253,13 @@
                         <ContextMenu AutomationProperties.Name="Playback buttons"
                                      Placement="Bottom"
                                      Mouse.PreviewMouseDownOutsideCapturedElement="DropdownContextMenu_PreviewMouseDownOutsideCapturedElement">
-                            <MenuItem x:Name="ShowPreviousButtonMenuItem"
-                                      Header="Previous"
+                            <MenuItem x:Name="ShowPlayPauseButtonMenuItem"
+                                      Header="Play / pause"
                                       IsCheckable="True"
                                       StaysOpenOnClick="True"
                                       Click="PlaybackButton_Changed" />
-                            <MenuItem x:Name="ShowPlayPauseButtonMenuItem"
-                                      Header="Play / pause"
+                            <MenuItem x:Name="ShowPreviousButtonMenuItem"
+                                      Header="Previous"
                                       IsCheckable="True"
                                       StaysOpenOnClick="True"
                                       Click="PlaybackButton_Changed" />

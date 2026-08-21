@@ -219,6 +219,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="NowPlayingText"
                                VerticalAlignment="Center"
@@ -227,8 +228,24 @@
                                AutomationProperties.LiveSetting="Polite"
                                Text="Nothing playing"
                                TextTrimming="CharacterEllipsis" />
+                    <Grid x:Name="TitlePlayPauseIndicator"
+                          Grid.Column="1"
+                          Width="{Binding Width, ElementName=PlayPauseIconContainer}"
+                          Height="{Binding Height, ElementName=PlayPauseIconContainer}"
+                          VerticalAlignment="Center"
+                          IsHitTestVisible="False"
+                          Visibility="Collapsed">
+                        <Path Stretch="Uniform"
+                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              Data="{Binding Data, ElementName=PlayIcon}"
+                              Visibility="{Binding Visibility, ElementName=PlayIcon}" />
+                        <Path Stretch="Uniform"
+                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              Data="{Binding Data, ElementName=PauseIcon}"
+                              Visibility="{Binding Visibility, ElementName=PauseIcon}" />
+                    </Grid>
                     <Grid x:Name="VolumeIndicator"
-                           Grid.Column="1"
+                           Grid.Column="2"
                            Background="Transparent"
                            Visibility="Collapsed"
                            AutomationProperties.Name="Volume"
@@ -252,7 +269,7 @@
                                    Visibility="Collapsed" />
                     </Grid>
                     <Image x:Name="AppIconImage"
-                           Grid.Column="2"
+                           Grid.Column="3"
                            VerticalAlignment="Center"
                            AutomationProperties.Name="Media app icon"
                            RenderOptions.BitmapScalingMode="HighQuality"

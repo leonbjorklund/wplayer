@@ -126,6 +126,7 @@ public partial class MainWindow : Window
         PreviousButton.Visibility = _config.ShowPreviousButton ? Visibility.Visible : Visibility.Collapsed;
         PlayPauseButton.Visibility = _config.ShowPlayPauseButton ? Visibility.Visible : Visibility.Collapsed;
         NextButton.Visibility = _config.ShowNextButton ? Visibility.Visible : Visibility.Collapsed;
+        UpdateTitlePlaybackIndicatorVisibility();
         var highContrast = SystemParameters.HighContrast;
         var background = highContrast
             ? new SolidColorBrush(SystemColors.WindowColor)
@@ -250,6 +251,7 @@ public partial class MainWindow : Window
 
         NowPlayingHitTarget.MinHeight = metrics.RowHeight;
         NowPlayingContent.Margin = new Thickness(metrics.ContentHorizontalInset, 0, metrics.ContentHorizontalInset, 0);
+        TitlePlayPauseIndicator.Margin = new Thickness(metrics.AppIconGap, 0, metrics.AppIconGap, 0);
         VolumeIndicator.MinWidth = metrics.VolumeIndicatorWidth;
         VolumeIndicator.Height = metrics.RowHeight;
         VolumeSpeakerIcon.Width = metrics.VolumeIconSize;
@@ -576,6 +578,7 @@ public partial class MainWindow : Window
 
                     _currentSourceAppUserModelId = snapshot.SourceAppUserModelId;
                     _hasMediaSession = snapshot.HasSession;
+                    UpdateTitlePlaybackIndicatorVisibility();
                     SetLiveText(NowPlayingText, snapshot.DisplayText);
                     AutomationProperties.SetName(
                         PlayPauseButton,
@@ -604,6 +607,7 @@ public partial class MainWindow : Window
                     _renderedSnapshot = null;
                     _currentSourceAppUserModelId = null;
                     _hasMediaSession = false;
+                    UpdateTitlePlaybackIndicatorVisibility();
                     ResetVolumeIndicatorValue();
                     SetLiveText(NowPlayingText, "Media unavailable");
                     AutomationProperties.SetName(PlayPauseButton, "Play");
@@ -875,6 +879,7 @@ public partial class MainWindow : Window
     private void NowPlayingHitTarget_MouseEnter(object sender, MouseEventArgs e)
     {
         Volatile.Write(ref _volumeScrollHovered, true);
+        UpdateTitlePlaybackIndicatorVisibility();
         var showVolume = _hasMediaSession || _config.ScrollVolumeTarget == VolumeScrollTarget.WindowsMaster;
         VolumeIndicator.Visibility = showVolume ? Visibility.Visible : Visibility.Collapsed;
         if (showVolume && !_volumeValuePinned && !VolumeIndicator.IsMouseOver)
@@ -886,9 +891,18 @@ public partial class MainWindow : Window
     private void NowPlayingHitTarget_MouseLeave(object sender, MouseEventArgs e)
     {
         Volatile.Write(ref _volumeScrollHovered, false);
+        UpdateTitlePlaybackIndicatorVisibility();
         VolumeIndicator.Visibility = Visibility.Collapsed;
         ResetVolumeIndicatorValue();
     }
+
+    private void UpdateTitlePlaybackIndicatorVisibility() =>
+        TitlePlayPauseIndicator.Visibility = TitlePlaybackIndicatorPolicy.ShouldShow(
+            _config.ShowPlayPauseButton,
+            _hasMediaSession,
+            NowPlayingHitTarget.IsMouseOver)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
     private void VolumeIndicator_MouseEnter(object sender, MouseEventArgs e)
     {
@@ -1053,4 +1067,10 @@ internal static class TitleMouseGestureResolver
             (MouseButton.Right, ModifierKeys.Shift) => PlaybackCommand.Previous,
             _ => PlaybackCommand.None
         };
+}
+
+internal static class TitlePlaybackIndicatorPolicy
+{
+    public static bool ShouldShow(bool showPlayPauseButton, bool hasMediaSession, bool isTitleHovered) =>
+        !showPlayPauseButton && hasMediaSession && isTitleHovered;
 }

@@ -1,3 +1,5 @@
+using System.Windows.Threading;
+
 namespace WPlayer.Tests;
 
 internal static class StaTest
@@ -24,5 +26,21 @@ internal static class StaTest
         {
             throw new InvalidOperationException("STA test failed.", exception);
         }
+    }
+
+    public static void Pump(TimeSpan duration)
+    {
+        var frame = new DispatcherFrame();
+        var timer = new DispatcherTimer(DispatcherPriority.Send)
+        {
+            Interval = duration
+        };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            frame.Continue = false;
+        };
+        timer.Start();
+        Dispatcher.PushFrame(frame);
     }
 }

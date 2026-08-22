@@ -18,9 +18,12 @@ public partial class MainWindow : Window
     private const int VolumeStepPercent = 5;
     private const int ResumeMonitorCheckCount = 40;
     private static readonly TimeSpan ResumeMonitorCheckInterval = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan MediaReconciliationDelay = TimeSpan.FromMilliseconds(500);
     private readonly MediaSessionService _media = new();
     private readonly VolumeWheelAccumulator _volumeWheel = new();
     private readonly Func<PlaybackCommand, Task>? _playbackCommandOverride;
+    private readonly Func<Task<MediaSnapshot>>? _mediaSnapshotOverride;
+    private readonly DispatcherTimer _mediaReconciliationTimer;
     private readonly DispatcherTimer _resumeMonitorTimer;
     private readonly Dictionary<string, DisplayMonitorOption> _knownMonitorOptions =
         new(StringComparer.OrdinalIgnoreCase);
@@ -36,6 +39,7 @@ public partial class MainWindow : Window
     private string? _refreshErrorKey;
     private bool _refreshing;
     private bool _refreshQueued;
+    private bool _closing;
     private bool _dragging;
     private bool _positionQueued;
     private bool _hasMediaSession;
@@ -50,9 +54,19 @@ public partial class MainWindow : Window
 
     internal MainWindow(
         AppConfig config,
-        Func<PlaybackCommand, Task>? playbackCommandOverride = null)
+        Func<PlaybackCommand, Task>? playbackCommandOverride = null,
+        Func<Task<MediaSnapshot>>? mediaSnapshotOverride = null)
     {
         InitializeComponent();
+        _mediaReconciliationTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = MediaReconciliationDelay
+        };
+        _mediaReconciliationTimer.Tick += async (_, _) =>
+        {
+            _mediaReconciliationTimer.Stop();
+            await RefreshMediaAsync();
+        };
         _resumeMonitorTimer = new DispatcherTimer(DispatcherPriority.Loaded)
         {
             Interval = ResumeMonitorCheckInterval
@@ -62,8 +76,9 @@ public partial class MainWindow : Window
         SizeChanged += (_, _) => QueueApplyPosition();
         _config = config;
         _playbackCommandOverride = playbackCommandOverride;
+        _mediaSnapshotOverride = mediaSnapshotOverride;
         ApplyConfig();
-        _media.Changed += (_, _) => _ = Dispatcher.InvokeAsync(RefreshMediaAsync);
+        _media.Changed += (_, _) => _ = Dispatcher.InvokeAsync(OnMediaChanged);
 
         var refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         refreshTimer.Tick += async (_, _) => await RefreshMediaAsync();
@@ -108,8 +123,10 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
+        _closing = true;
         SystemParameters.StaticPropertyChanged -= SystemParameters_StaticPropertyChanged;
         _monitorOptionsRefreshVersion++;
+        _mediaReconciliationTimer.Stop();
         _resumeMonitorTimer.Stop();
         _mouseWheelHook?.Dispose();
         _fullscreenGuard?.Dispose();
@@ -558,7 +575,9 @@ public partial class MainWindow : Window
                 _refreshQueued = false;
                 try
                 {
-                    var snapshot = await _media.GetSnapshotAsync(_config);
+                    var snapshot = _mediaSnapshotOverride is null
+                        ? await _media.GetSnapshotAsync(_config)
+                        : await _mediaSnapshotOverride();
                     if (snapshot.ConfigChanged)
                     {
                         _config.Save();
@@ -842,6 +861,23 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnMediaChanged()
+    {
+        ScheduleMediaReconciliation();
+        _ = RefreshMediaAsync();
+    }
+
+    internal void ScheduleMediaReconciliation()
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        _mediaReconciliationTimer.Stop();
+        _mediaReconciliationTimer.Start();
+    }
+
     private async void NowPlayingHitTarget_PreviewMouseUp(object sender, MouseButtonEventArgs e)
     {
         if (_armedTitleMouseButton != e.ChangedButton)
@@ -880,16 +916,25 @@ public partial class MainWindow : Window
         _armedTitleMouseButton = null;
     }
 
-    private Task RunPlaybackCommandAsync(PlaybackCommand command) =>
-        _playbackCommandOverride is not null
-            ? _playbackCommandOverride(command)
-            : command switch
+    private async Task RunPlaybackCommandAsync(PlaybackCommand command)
+    {
+        if (_playbackCommandOverride is not null)
+        {
+            await _playbackCommandOverride(command);
+        }
+        else
+        {
+            await (command switch
             {
                 PlaybackCommand.TogglePlayPause => RunMediaCommandAsync(() => _media.TogglePlayPauseAsync(_config)),
                 PlaybackCommand.Next => RunMediaCommandAsync(() => _media.NextAsync(_config)),
                 PlaybackCommand.Previous => RunMediaCommandAsync(() => _media.PreviousAsync(_config)),
                 _ => Task.CompletedTask
-            };
+            });
+        }
+
+        ScheduleMediaReconciliation();
+    }
 
     private void NowPlayingHitTarget_MouseEnter(object sender, MouseEventArgs e)
     {

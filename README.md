@@ -14,6 +14,7 @@ Small Windows 11 media-session widget. Built with C# and WPF.
 - Right-click for settings, dragging, and exit.
 - Drag player's right edge to resize.
 - Click text area to focus playing app.
+- When the play/pause button is hidden, hover the text area and click its play/pause icon.
 - Middle-click text area to toggle play or pause.
 - Shift + left-click text area for the next track.
 - Shift + right-click text area for the previous track.

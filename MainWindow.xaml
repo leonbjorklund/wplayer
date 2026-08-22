@@ -228,29 +228,35 @@
                                AutomationProperties.LiveSetting="Polite"
                                Text="Nothing playing"
                                TextTrimming="CharacterEllipsis" />
-                    <Grid x:Name="TitlePlayPauseIndicator"
-                          Grid.Column="1"
-                          Width="{Binding Width, ElementName=PlayPauseIconContainer}"
-                          Height="{Binding Height, ElementName=PlayPauseIconContainer}"
-                          VerticalAlignment="Center"
-                          IsHitTestVisible="False"
-                          Visibility="Collapsed">
-                        <Path Stretch="Uniform"
-                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              Data="{Binding Data, ElementName=PlayIcon}"
-                              Visibility="{Binding Visibility, ElementName=PlayIcon}" />
-                        <Path Stretch="Uniform"
-                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              Data="{Binding Data, ElementName=PauseIcon}"
-                              Visibility="{Binding Visibility, ElementName=PauseIcon}" />
-                    </Grid>
-                    <Grid x:Name="VolumeIndicator"
-                           Grid.Column="2"
-                           Background="Transparent"
-                           Visibility="Collapsed"
-                           AutomationProperties.Name="Volume"
-                           MouseEnter="VolumeIndicator_MouseEnter"
-                           MouseLeave="VolumeIndicator_MouseLeave">
+                    <Button x:Name="TitlePlayPauseIndicator"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Background="Transparent"
+                            Foreground="{Binding Foreground, ElementName=NowPlayingHitTarget}"
+                            Focusable="False"
+                            IsTabStop="False"
+                            AutomationProperties.Name="Play"
+                            Visibility="Collapsed"
+                            Click="TitlePlayPauseIndicator_Click">
+                        <Grid Width="{Binding Width, ElementName=PlayPauseIconContainer}"
+                              Height="{Binding Height, ElementName=PlayPauseIconContainer}">
+                            <Path Stretch="Uniform"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="{Binding Data, ElementName=PlayIcon}"
+                                  Visibility="{Binding Visibility, ElementName=PlayIcon}" />
+                            <Path Stretch="Uniform"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="{Binding Data, ElementName=PauseIcon}"
+                                  Visibility="{Binding Visibility, ElementName=PauseIcon}" />
+                        </Grid>
+                    </Button>
+                    <Canvas x:Name="VolumeIndicator"
+                            Grid.Column="2"
+                            Background="Transparent"
+                            Visibility="Collapsed"
+                            AutomationProperties.Name="Volume"
+                            MouseEnter="VolumeIndicator_MouseEnter"
+                            MouseLeave="VolumeIndicator_MouseLeave">
                         <Viewbox x:Name="VolumeSpeakerIcon"
                                  Stretch="Uniform">
                             <Canvas Width="24" Height="24">
@@ -259,15 +265,12 @@
                             </Canvas>
                         </Viewbox>
                         <TextBlock x:Name="VolumePercentText"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                   FontSize="{Binding FontSize, ElementName=NowPlayingText}"
                                    FontWeight="SemiBold"
                                    AutomationProperties.LiveSetting="Polite"
                                    Text="0%"
                                    Visibility="Collapsed" />
-                    </Grid>
+                    </Canvas>
                     <Image x:Name="AppIconImage"
                            Grid.Column="3"
                            VerticalAlignment="Center"

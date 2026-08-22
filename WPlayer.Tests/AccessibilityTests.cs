@@ -59,15 +59,57 @@ public sealed class AccessibilityTests
             try
             {
                 var playPause = (Button)player.FindName("PlayPauseButton");
+                var titlePlayPause = (Button)player.FindName("TitlePlayPauseIndicator");
                 var nowPlayingButton = (Button)player.FindName("NowPlayingHitTarget");
                 var nowPlayingText = (TextBlock)player.FindName("NowPlayingText");
                 var volumeText = (TextBlock)player.FindName("VolumePercentText");
 
                 Assert.AreEqual("Play", AutomationProperties.GetName(playPause));
+                Assert.AreEqual("Play", AutomationProperties.GetName(titlePlayPause));
+                Assert.IsFalse(titlePlayPause.IsTabStop);
                 Assert.AreEqual("Nothing playing", AutomationProperties.GetName(nowPlayingButton));
                 Assert.IsFalse(nowPlayingButton.IsTabStop);
                 Assert.AreEqual(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(nowPlayingText));
                 Assert.AreEqual(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(volumeText));
+            }
+            finally
+            {
+                player.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    public void HoverPlaybackActionTracksStateAndStopsTheTitleClick()
+    {
+        StaTest.Run(() =>
+        {
+            var playbackCommands = new List<PlaybackCommand>();
+            var player = new MainWindow(
+                new AppConfig { ShowPlayPauseButton = false },
+                command =>
+                {
+                    playbackCommands.Add(command);
+                    return Task.CompletedTask;
+                });
+            try
+            {
+                var titlePlayPause = (Button)player.FindName("TitlePlayPauseIndicator");
+                var nowPlayingButton = (Button)player.FindName("NowPlayingHitTarget");
+                var titleClicks = 0;
+                nowPlayingButton.Click += (_, _) => titleClicks++;
+
+                player.UpdatePlaybackState(isPlaying: true);
+                Assert.AreEqual("Pause", AutomationProperties.GetName(titlePlayPause));
+
+                var click = new RoutedEventArgs(Button.ClickEvent);
+                titlePlayPause.RaiseEvent(click);
+
+                Assert.IsTrue(click.Handled);
+                Assert.AreEqual(0, titleClicks);
+                CollectionAssert.AreEqual(
+                    new[] { PlaybackCommand.TogglePlayPause },
+                    playbackCommands);
             }
             finally
             {

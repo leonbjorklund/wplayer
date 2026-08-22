@@ -12,6 +12,7 @@ internal readonly record struct PlayerLayoutMetrics(double Scale)
     public double ControlGap => 3 * Scale;
     public double PreviousNextIconSize => 8 * Scale;
     public double PlayPauseIconSize => 11 * Scale;
+    public double TitlePlaybackLayoutWidth => 21 * Scale;
     public double ContentHorizontalInset => 4 * Scale;
     public double VolumeIndicatorWidth => 22 * Scale;
     public double VolumeIconSize => 18 * Scale;
@@ -25,6 +26,10 @@ internal readonly record struct PlayerLayoutMetrics(double Scale)
     public double ResizeCueSize => 9 * Scale;
     public double ResizeHitTargetWidth => 6 * Scale;
     public double ResizeHitTargetOutsideWidth => 5 * Scale;
+
+    public double VolumePercentFontSize => 12 * Scale;
+    public double VolumePercentVerticalOffset => -0.5 * Scale;
+    public double VolumeTitleClearance => 4 * Scale;
 
     public static double CalculateLineHeight(
         double minimumRowHeight,

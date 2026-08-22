@@ -20,6 +20,7 @@ public sealed class PlayerLayoutMetricsTests
         Assert.AreEqual(3 * scale, metrics.ControlGap);
         Assert.AreEqual(8 * scale, metrics.PreviousNextIconSize);
         Assert.AreEqual(11 * scale, metrics.PlayPauseIconSize);
+        Assert.AreEqual(21 * scale, metrics.TitlePlaybackLayoutWidth);
         Assert.AreEqual(4 * scale, metrics.ContentHorizontalInset);
         Assert.AreEqual(22 * scale, metrics.VolumeIndicatorWidth);
         Assert.AreEqual(18 * scale, metrics.VolumeIconSize);
@@ -33,6 +34,9 @@ public sealed class PlayerLayoutMetricsTests
         Assert.AreEqual(9 * scale, metrics.ResizeCueSize);
         Assert.AreEqual(6 * scale, metrics.ResizeHitTargetWidth);
         Assert.AreEqual(5 * scale, metrics.ResizeHitTargetOutsideWidth);
+        Assert.AreEqual(12 * scale, metrics.VolumePercentFontSize);
+        Assert.AreEqual(-0.5 * scale, metrics.VolumePercentVerticalOffset);
+        Assert.AreEqual(4 * scale, metrics.VolumeTitleClearance);
     }
 
     [TestMethod]

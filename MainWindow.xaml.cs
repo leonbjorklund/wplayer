@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private static readonly TimeSpan ResumeMonitorCheckInterval = TimeSpan.FromMilliseconds(500);
     private readonly MediaSessionService _media = new();
     private readonly VolumeWheelAccumulator _volumeWheel = new();
+    private readonly Func<PlaybackCommand, Task>? _playbackCommandOverride;
     private readonly DispatcherTimer _resumeMonitorTimer;
     private readonly Dictionary<string, DisplayMonitorOption> _knownMonitorOptions =
         new(StringComparer.OrdinalIgnoreCase);
@@ -47,7 +48,9 @@ public partial class MainWindow : Window
     private int _monitorOptionsRefreshVersion;
     private DisplayMonitorOption[] _activeMonitorOptions = [];
 
-    internal MainWindow(AppConfig config)
+    internal MainWindow(
+        AppConfig config,
+        Func<PlaybackCommand, Task>? playbackCommandOverride = null)
     {
         InitializeComponent();
         _resumeMonitorTimer = new DispatcherTimer(DispatcherPriority.Loaded)
@@ -58,6 +61,7 @@ public partial class MainWindow : Window
         SystemParameters.StaticPropertyChanged += SystemParameters_StaticPropertyChanged;
         SizeChanged += (_, _) => QueueApplyPosition();
         _config = config;
+        _playbackCommandOverride = playbackCommandOverride;
         ApplyConfig();
         _media.Changed += (_, _) => _ = Dispatcher.InvokeAsync(RefreshMediaAsync);
 
@@ -251,11 +255,17 @@ public partial class MainWindow : Window
 
         NowPlayingHitTarget.MinHeight = metrics.RowHeight;
         NowPlayingContent.Margin = new Thickness(metrics.ContentHorizontalInset, 0, metrics.ContentHorizontalInset, 0);
-        TitlePlayPauseIndicator.Margin = new Thickness(metrics.AppIconGap, 0, metrics.AppIconGap, 0);
-        VolumeIndicator.MinWidth = metrics.VolumeIndicatorWidth;
+        TitlePlayPauseIndicator.Width = metrics.RowHeight;
+        TitlePlayPauseIndicator.Height = metrics.RowHeight;
+        var titlePlaybackOverflow = (metrics.RowHeight - metrics.TitlePlaybackLayoutWidth) / 2;
+        TitlePlayPauseIndicator.Margin = new Thickness(-titlePlaybackOverflow, 0, -titlePlaybackOverflow, 0);
+        VolumeIndicator.Width = metrics.VolumeIndicatorWidth;
         VolumeIndicator.Height = metrics.RowHeight;
         VolumeSpeakerIcon.Width = metrics.VolumeIconSize;
         VolumeSpeakerIcon.Height = metrics.VolumeIconSize;
+        Canvas.SetLeft(VolumeSpeakerIcon, (metrics.VolumeIndicatorWidth - metrics.VolumeIconSize) / 2);
+        Canvas.SetTop(VolumeSpeakerIcon, (metrics.RowHeight - metrics.VolumeIconSize) / 2);
+        VolumePercentText.FontSize = metrics.VolumePercentFontSize;
         AppIconImage.Width = metrics.AppIconSize;
         AppIconImage.Height = metrics.AppIconSize;
         AppIconImage.Margin = new Thickness(metrics.AppIconGap, 0, 0, 0);
@@ -580,9 +590,7 @@ public partial class MainWindow : Window
                     _hasMediaSession = snapshot.HasSession;
                     UpdateTitlePlaybackIndicatorVisibility();
                     SetLiveText(NowPlayingText, snapshot.DisplayText);
-                    AutomationProperties.SetName(
-                        PlayPauseButton,
-                        snapshot.IsPlaying ? "Pause" : "Play");
+                    UpdatePlaybackState(snapshot.IsPlaying);
                     UpdateNowPlayingAccessibility();
                     var mediaAppName = _config.MediaApps.FirstOrDefault(app =>
                         string.Equals(
@@ -594,8 +602,6 @@ public partial class MainWindow : Window
                         string.IsNullOrWhiteSpace(mediaAppName) ? "Media app icon" : $"{mediaAppName} icon");
                     AppIconImage.Source = appIcon;
                     AppIconImage.Visibility = appIcon is null ? Visibility.Collapsed : Visibility.Visible;
-                    PlayIcon.Visibility = snapshot.IsPlaying ? Visibility.Collapsed : Visibility.Visible;
-                    PauseIcon.Visibility = snapshot.IsPlaying ? Visibility.Visible : Visibility.Collapsed;
                     ControlPanel.IsEnabled = snapshot.HasSession;
                     ApplyContentOpacity(snapshot.HasSession);
                     CycleSessionButton.Visibility = snapshot.EnabledSessionCount >= 2 ? Visibility.Visible : Visibility.Collapsed;
@@ -610,7 +616,7 @@ public partial class MainWindow : Window
                     UpdateTitlePlaybackIndicatorVisibility();
                     ResetVolumeIndicatorValue();
                     SetLiveText(NowPlayingText, "Media unavailable");
-                    AutomationProperties.SetName(PlayPauseButton, "Play");
+                    UpdatePlaybackState(isPlaying: false);
                     UpdateNowPlayingAccessibility();
                     AppIconImage.Source = null;
                     AppIconImage.Visibility = Visibility.Collapsed;
@@ -664,6 +670,12 @@ public partial class MainWindow : Window
 
     private async void PlayPause_Click(object sender, RoutedEventArgs e) =>
         await RunPlaybackCommandAsync(PlaybackCommand.TogglePlayPause);
+
+    private async void TitlePlayPauseIndicator_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        await RunPlaybackCommandAsync(PlaybackCommand.TogglePlayPause);
+    }
 
     private async void Next_Click(object sender, RoutedEventArgs e) =>
         await RunPlaybackCommandAsync(PlaybackCommand.Next);
@@ -868,20 +880,23 @@ public partial class MainWindow : Window
         _armedTitleMouseButton = null;
     }
 
-    private Task RunPlaybackCommandAsync(PlaybackCommand command) => command switch
-    {
-        PlaybackCommand.TogglePlayPause => RunMediaCommandAsync(() => _media.TogglePlayPauseAsync(_config)),
-        PlaybackCommand.Next => RunMediaCommandAsync(() => _media.NextAsync(_config)),
-        PlaybackCommand.Previous => RunMediaCommandAsync(() => _media.PreviousAsync(_config)),
-        _ => Task.CompletedTask
-    };
+    private Task RunPlaybackCommandAsync(PlaybackCommand command) =>
+        _playbackCommandOverride is not null
+            ? _playbackCommandOverride(command)
+            : command switch
+            {
+                PlaybackCommand.TogglePlayPause => RunMediaCommandAsync(() => _media.TogglePlayPauseAsync(_config)),
+                PlaybackCommand.Next => RunMediaCommandAsync(() => _media.NextAsync(_config)),
+                PlaybackCommand.Previous => RunMediaCommandAsync(() => _media.PreviousAsync(_config)),
+                _ => Task.CompletedTask
+            };
 
     private void NowPlayingHitTarget_MouseEnter(object sender, MouseEventArgs e)
     {
         Volatile.Write(ref _volumeScrollHovered, true);
         UpdateTitlePlaybackIndicatorVisibility();
         var showVolume = _hasMediaSession || _config.ScrollVolumeTarget == VolumeScrollTarget.WindowsMaster;
-        VolumeIndicator.Visibility = showVolume ? Visibility.Visible : Visibility.Collapsed;
+        SetVolumeIndicatorVisibility(showVolume ? Visibility.Visible : Visibility.Collapsed);
         if (showVolume && !_volumeValuePinned && !VolumeIndicator.IsMouseOver)
         {
             ShowVolumeSpeaker();
@@ -892,17 +907,45 @@ public partial class MainWindow : Window
     {
         Volatile.Write(ref _volumeScrollHovered, false);
         UpdateTitlePlaybackIndicatorVisibility();
-        VolumeIndicator.Visibility = Visibility.Collapsed;
+        SetVolumeIndicatorVisibility(Visibility.Collapsed);
         ResetVolumeIndicatorValue();
     }
 
-    private void UpdateTitlePlaybackIndicatorVisibility() =>
+    private void UpdateTitlePlaybackIndicatorVisibility()
+    {
         TitlePlayPauseIndicator.Visibility = TitlePlaybackIndicatorPolicy.ShouldShow(
             _config.ShowPlayPauseButton,
             _hasMediaSession,
             NowPlayingHitTarget.IsMouseOver)
             ? Visibility.Visible
             : Visibility.Collapsed;
+        UpdateNowPlayingTextClearance();
+    }
+
+    private void SetVolumeIndicatorVisibility(Visibility visibility)
+    {
+        VolumeIndicator.Visibility = visibility;
+        UpdateNowPlayingTextClearance();
+    }
+
+    internal void UpdateNowPlayingTextClearance()
+    {
+        var reserveVolumeClearance = VolumeIndicator.Visibility == Visibility.Visible
+            && TitlePlayPauseIndicator.Visibility != Visibility.Visible;
+        var right = reserveVolumeClearance
+            ? new PlayerLayoutMetrics(_config.PlayerScale).VolumeTitleClearance
+            : 0;
+        NowPlayingText.Margin = new Thickness(0, 0, right, 0);
+    }
+
+    internal void UpdatePlaybackState(bool isPlaying)
+    {
+        var actionName = isPlaying ? "Pause" : "Play";
+        AutomationProperties.SetName(PlayPauseButton, actionName);
+        AutomationProperties.SetName(TitlePlayPauseIndicator, actionName);
+        PlayIcon.Visibility = isPlaying ? Visibility.Collapsed : Visibility.Visible;
+        PauseIcon.Visibility = isPlaying ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void VolumeIndicator_MouseEnter(object sender, MouseEventArgs e)
     {
@@ -970,7 +1013,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        VolumeIndicator.Visibility = Visibility.Visible;
+        SetVolumeIndicatorVisibility(Visibility.Visible);
         e.Handled = true;
     }
 
@@ -978,7 +1021,7 @@ public partial class MainWindow : Window
     {
         if (!NowPlayingHitTarget.IsMouseOver)
         {
-            VolumeIndicator.Visibility = Visibility.Collapsed;
+            SetVolumeIndicatorVisibility(Visibility.Collapsed);
             ResetVolumeIndicatorValue();
         }
     }
@@ -989,11 +1032,22 @@ public partial class MainWindow : Window
         VolumePercentText.Visibility = Visibility.Collapsed;
     }
 
-    private void ShowVolumePercent(int percent)
+    internal void ShowVolumePercent(int percent)
     {
+        var clampedPercent = Math.Clamp(percent, 0, 100);
+        var metrics = new PlayerLayoutMetrics(_config.PlayerScale);
         VolumeSpeakerIcon.Visibility = Visibility.Collapsed;
         VolumePercentText.Visibility = Visibility.Visible;
-        SetLiveText(VolumePercentText, $"{Math.Clamp(percent, 0, 100)}%");
+        VolumePercentText.LayoutTransform = new ScaleTransform(
+            clampedPercent == 100 ? 11d / 12d : 1,
+            1);
+        SetLiveText(VolumePercentText, $"{clampedPercent}%");
+        VolumePercentText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        Canvas.SetLeft(VolumePercentText, (VolumeIndicator.Width - VolumePercentText.DesiredSize.Width) / 2);
+        Canvas.SetTop(
+            VolumePercentText,
+            (VolumeIndicator.Height - VolumePercentText.DesiredSize.Height) / 2
+            + metrics.VolumePercentVerticalOffset);
     }
 
     private void UpdateNowPlayingAccessibility()

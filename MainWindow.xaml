@@ -186,7 +186,7 @@
                     Background="Transparent"
                     FocusVisualStyle="{StaticResource KeyboardFocusVisual}"
                     Click="NowPlayingHitTarget_Click"
-                    KeyDown="NowPlayingHitTarget_KeyDown"
+                    PreviewKeyDown="NowPlayingHitTarget_PreviewKeyDown"
                     LostKeyboardFocus="NowPlayingHitTarget_LostKeyboardFocus"
                     LostMouseCapture="NowPlayingHitTarget_LostMouseCapture"
                     MouseEnter="NowPlayingHitTarget_MouseEnter"

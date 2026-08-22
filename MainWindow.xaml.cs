@@ -1045,8 +1045,19 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private void NowPlayingHitTarget_KeyDown(object sender, KeyEventArgs e)
+    private async void NowPlayingHitTarget_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        var playbackCommand = TitlePlaybackKeyboardGestureResolver.Resolve(
+            e.Key,
+            _config.ShowPlayPauseButton,
+            _hasMediaSession);
+        if (playbackCommand != PlaybackCommand.None)
+        {
+            e.Handled = true;
+            await RunPlaybackCommandAsync(playbackCommand);
+            return;
+        }
+
         var steps = e.Key switch
         {
             Key.Up => 1,
@@ -1098,6 +1109,9 @@ public partial class MainWindow : Window
     private void UpdateNowPlayingAccessibility()
     {
         var controlsSystemVolume = _config.ScrollVolumeTarget == VolumeScrollTarget.WindowsMaster;
+        var mediaHelp = _config.ShowPlayPauseButton
+            ? "Press Enter to focus the media source."
+            : "Press Enter to focus the media source. Press Space to play or pause.";
         NowPlayingHitTarget.IsTabStop = _hasMediaSession || controlsSystemVolume;
         AutomationProperties.SetName(
             NowPlayingHitTarget,
@@ -1110,7 +1124,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetHelpText(
             NowPlayingHitTarget,
             _hasMediaSession
-                ? $"Press Enter to focus the media source. {volumeHelp}"
+                ? $"{mediaHelp} {volumeHelp}"
                 : volumeHelp);
     }
 
@@ -1172,4 +1186,12 @@ internal static class TitlePlaybackIndicatorPolicy
 {
     public static bool ShouldShow(bool showPlayPauseButton, bool hasMediaSession, bool isTitleHovered) =>
         !showPlayPauseButton && hasMediaSession && isTitleHovered;
+}
+
+internal static class TitlePlaybackKeyboardGestureResolver
+{
+    public static PlaybackCommand Resolve(Key key, bool showPlayPauseButton, bool hasMediaSession) =>
+        key == Key.Space && !showPlayPauseButton && hasMediaSession
+            ? PlaybackCommand.TogglePlayPause
+            : PlaybackCommand.None;
 }

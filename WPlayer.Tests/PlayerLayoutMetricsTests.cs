@@ -43,6 +43,7 @@ public sealed class PlayerLayoutMetricsTests
     [DataRow(22, 1.2, 13, 1, 16)]
     [DataRow(22, 1.2, 13, 1.5, 16.666666666666668)]
     [DataRow(22, 1.2, 40, 1.5, 48)]
+    [DataRow(22, 1.2, 13, 1.75, 16)]
     public void LineHeightFitsTextAndKeepsPixelParity(
         double minimumRowHeight,
         double fontLineSpacing,
@@ -57,5 +58,26 @@ public sealed class PlayerLayoutMetricsTests
             dpiScale);
 
         Assert.AreEqual(expected, lineHeight, 0.0001);
+    }
+
+    [TestMethod]
+    [DataRow(22, 18, 0.8, 9, 1, -1.4)]
+    [DataRow(22, 18, 0.8, 14, 1.5, -1.6 / 1.5)]
+    public void TitleOffsetCentersCapitalsWithOddPixelBelow(
+        double rowHeight,
+        double lineHeight,
+        double fontBaselineRatio,
+        int capPixels,
+        double dpiScale,
+        double expected)
+    {
+        var offset = PlayerLayoutMetrics.CalculateTitleOffset(
+            rowHeight,
+            lineHeight,
+            fontBaselineRatio,
+            capPixels,
+            dpiScale);
+
+        Assert.AreEqual(expected, offset, 0.0001);
     }
 }

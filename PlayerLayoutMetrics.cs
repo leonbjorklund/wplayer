@@ -37,7 +37,8 @@ internal readonly record struct PlayerLayoutMetrics(double Scale)
         double fontSize,
         double dpiScale)
     {
-        var rowPixels = (int)Math.Round(minimumRowHeight * dpiScale, MidpointRounding.AwayFromZero);
+        // WPF layout rounds half pixels to even.
+        var rowPixels = (int)Math.Round(minimumRowHeight * dpiScale);
         var linePixels = (int)Math.Ceiling(fontLineSpacing * fontSize * dpiScale);
         rowPixels = Math.Max(rowPixels, linePixels);
         if ((rowPixels - linePixels) % 2 != 0)
@@ -46,5 +47,21 @@ internal readonly record struct PlayerLayoutMetrics(double Scale)
         }
 
         return linePixels / dpiScale;
+    }
+
+    // WPF draws the baseline at LineHeight * fontBaselineRatio inside the centered line box
+    // and snaps it to the nearest pixel. Centers the capitals instead, odd pixel below.
+    public static double CalculateTitleOffset(
+        double rowHeight,
+        double lineHeight,
+        double fontBaselineRatio,
+        int capPixels,
+        double dpiScale)
+    {
+        var rowPixels = Math.Round(rowHeight * dpiScale);
+        var linePixels = lineHeight * dpiScale;
+        var baselinePixels = (rowPixels - linePixels) / 2 + linePixels * fontBaselineRatio;
+        var targetBaselinePixels = Math.Floor((rowPixels - capPixels) / 2) + capPixels;
+        return (targetBaselinePixels - baselinePixels) / dpiScale;
     }
 }

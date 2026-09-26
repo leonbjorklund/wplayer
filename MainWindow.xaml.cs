@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
@@ -7,6 +8,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using WPlayer.Services;
 
@@ -143,7 +145,7 @@ public partial class MainWindow : Window
         var metrics = new PlayerLayoutMetrics(_config.PlayerScale);
         ApplyPlayerLayout(metrics);
         NowPlayingText.FontSize = metrics.FontSize;
-        ApplyNowPlayingLineHeight();
+        ApplyNowPlayingTextPosition();
         PreviousButton.Visibility = _config.ShowPreviousButton ? Visibility.Visible : Visibility.Collapsed;
         PlayPauseButton.Visibility = _config.ShowPlayPauseButton ? Visibility.Visible : Visibility.Collapsed;
         NextButton.Visibility = _config.ShowNextButton ? Visibility.Visible : Visibility.Collapsed;
@@ -285,7 +287,7 @@ public partial class MainWindow : Window
         VolumePercentText.FontSize = metrics.VolumePercentFontSize;
         AppIconImage.Width = metrics.AppIconSize;
         AppIconImage.Height = metrics.AppIconSize;
-        AppIconImage.Margin = new Thickness(metrics.AppIconGap, 0, 0, 0);
+        AppIconImage.Margin = new Thickness(0, 0, metrics.AppIconGap, 0);
 
         CycleSessionButton.Width = metrics.UtilityButtonWidth;
         CycleSessionButton.Height = metrics.RowHeight;
@@ -318,7 +320,7 @@ public partial class MainWindow : Window
         }
 
         _ = Dispatcher.InvokeAsync(ApplyContextMenuDpi, DispatcherPriority.Loaded);
-        _ = Dispatcher.InvokeAsync(ApplyNowPlayingLineHeight, DispatcherPriority.Loaded);
+        _ = Dispatcher.InvokeAsync(ApplyNowPlayingTextPosition, DispatcherPriority.Loaded);
         _ = RefreshMonitorOptionsAsync();
     }
 
@@ -455,14 +457,50 @@ public partial class MainWindow : Window
             separator.Height = 1 / VisualTreeHelper.GetDpi(this).DpiScaleY;
     }
 
-    private void ApplyNowPlayingLineHeight()
+    private void ApplyNowPlayingTextPosition()
     {
         var dpiScale = VisualTreeHelper.GetDpi(this).DpiScaleY;
+        var fontFamily = NowPlayingText.FontFamily;
         NowPlayingText.LineHeight = PlayerLayoutMetrics.CalculateLineHeight(
             NowPlayingHitTarget.MinHeight,
-            NowPlayingText.FontFamily.LineSpacing,
+            fontFamily.LineSpacing,
             NowPlayingText.FontSize,
             dpiScale);
+        NowPlayingText.RenderTransform = new TranslateTransform(0, PlayerLayoutMetrics.CalculateTitleOffset(
+            NowPlayingHitTarget.MinHeight,
+            NowPlayingText.LineHeight,
+            fontFamily.Baseline / fontFamily.LineSpacing,
+            MeasureCapPixels(NowPlayingText, dpiScale),
+            dpiScale));
+    }
+
+    // Font hinting decides the drawn capital height, so render one capital and count its rows.
+    private static int MeasureCapPixels(TextBlock text, double dpiScale)
+    {
+        var capital = new FormattedText(
+            "H",
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch),
+            text.FontSize,
+            Brushes.Black,
+            dpiScale);
+        var visual = new DrawingVisual();
+        using (var context = visual.RenderOpen())
+        {
+            context.DrawText(capital, new Point());
+        }
+
+        var width = (int)Math.Ceiling(capital.Width * dpiScale);
+        var height = (int)Math.Ceiling(capital.Height * dpiScale);
+        var bitmap = new RenderTargetBitmap(width, height, 96 * dpiScale, 96 * dpiScale, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        var pixels = new byte[width * height * 4];
+        bitmap.CopyPixels(pixels, width * 4, 0);
+        var inkRows = Enumerable.Range(0, height)
+            .Where(y => Enumerable.Range(0, width).Any(x => pixels[(y * width + x) * 4 + 3] > 127))
+            .ToArray();
+        return inkRows[^1] - inkRows[0] + 1;
     }
 
     internal void ShowSettings()

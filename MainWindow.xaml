@@ -216,12 +216,14 @@
                 </Button.Template>
                 <Grid x:Name="NowPlayingContent">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="NowPlayingText"
+                               Grid.Column="1"
                                VerticalAlignment="Center"
                                LineStackingStrategy="BlockLineHeight"
                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
@@ -229,7 +231,7 @@
                                Text="Nothing playing"
                                TextTrimming="CharacterEllipsis" />
                     <Button x:Name="TitlePlayPauseIndicator"
-                            Grid.Column="1"
+                            Grid.Column="2"
                             VerticalAlignment="Center"
                             Background="Transparent"
                             Foreground="{Binding Foreground, ElementName=NowPlayingHitTarget}"
@@ -259,7 +261,7 @@
                         </Grid>
                     </Button>
                     <Canvas x:Name="VolumeIndicator"
-                            Grid.Column="2"
+                            Grid.Column="3"
                             Background="Transparent"
                             Visibility="Collapsed"
                             AutomationProperties.Name="Volume"
@@ -280,7 +282,7 @@
                                    Visibility="Collapsed" />
                     </Canvas>
                     <Image x:Name="AppIconImage"
-                           Grid.Column="3"
+                           Grid.Column="0"
                            VerticalAlignment="Center"
                            AutomationProperties.Name="Media app icon"
                            RenderOptions.BitmapScalingMode="HighQuality"

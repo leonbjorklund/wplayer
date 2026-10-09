@@ -14,6 +14,7 @@ dotnet test .\WPlayer.Tests\WPlayer.Tests.csproj
 dotnet run
 .\scripts\package-release.ps1 # direct artifacts
 .\scripts\package-store.ps1   # Store MSIX
+git tag v<version>; git push origin main v<version> # release: commit the WPlayer.csproj <Version> bump first, then publish CI's draft
 ```
 
 ## Troubleshooting
